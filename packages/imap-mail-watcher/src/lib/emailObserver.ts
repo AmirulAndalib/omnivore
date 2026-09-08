@@ -2,7 +2,7 @@ import { Observable } from 'rxjs'
 import { FetchMessageObject, ImapFlow, MailboxLockObject } from 'imapflow'
 import { env } from '../env'
 
-const client: ImapFlow = new ImapFlow({
+const createClient = () => new ImapFlow({
   host: env.imap.host,
   port: env.imap.port,
   secure: true,
@@ -16,10 +16,12 @@ export const emailObserver$ = new Observable<FetchMessageObject>(
   (subscriber) => {
     let loop = true
     let lock: MailboxLockObject | null = null
+    let client = createClient();
 
     process.nextTick(async () => {
       while (loop) {
         if (!client.usable) {
+	  client = createClient()
           await client.connect()
         }
 
