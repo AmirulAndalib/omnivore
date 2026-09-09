@@ -20,35 +20,43 @@ export const emailObserver$ = new Observable<FetchMessageObject>(
 
     process.nextTick(async () => {
       while (loop) {
-        if (!client.usable) {
-	  client = createClient()
+        client = createClient()
+	if (!client.usable) {
           await client.connect()
         }
 
-        if (!lock) {
-          lock = await client.getMailboxLock('INBOX')
-        }
+	try { 
+            if (!lock) {
+              lock = await client.getMailboxLock('INBOX')
+            }
 
-        // Retrieve all the mails that have yet to be seen.
-        const messages = await client.fetchAll(
-          { seen: false },
-          {
-            envelope: true,
-            source: true,
-            uid: true,
-          }
-        )
+            // Retrieve all the mails that have yet to be seen.
+            const messages = await client.fetchAll(
+              { seen: false },
+              {
+                envelope: true,
+                source: true,
+                uid: true,
+              }
+            )
 
-        for (const message of messages) {
-          subscriber.next(message)
-          // Once we are done with this message, set it to seen.
-          await client.messageFlagsSet(
-            { uid: message.uid.toString(), seen: false },
-            ['\\Seen']
-          )
-        }
+            for (const message of messages) {
+              subscriber.next(message)
+              // Once we are done with this message, set it to seen.
+              await client.messageFlagsSet(
+                { uid: message.uid.toString(), seen: false },
+                ['\\Seen']
+              )
+            }
 
-        await new Promise((resolve) => setTimeout(resolve, env.waitTime))
+            await new Promise((resolve) => setTimeout(resolve, env.waitTime))
+	} catch (e) { 
+	   lock?.release()
+	   continue
+	} finally {
+	   console.log('Releasing lock...')	
+	   lock?.release()
+	}
       }
     })
 
